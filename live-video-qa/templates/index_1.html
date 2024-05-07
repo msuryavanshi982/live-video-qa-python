@@ -1,0 +1,158 @@
+<!-- templates/index.html -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Signup or Start Interview</h1>
+        <div id="signupSection">
+            <h2>Signup</h2>
+            <form id="signupForm" action="/" method="post">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" class="form-control" id="username" placeholder="Username">
+                </div>
+                <div class="form-group">
+                    <label for="workExperience">Work Experience (in years)</label>
+                    <input type="text" class="form-control" id="workExperience" placeholder="Work Experience">
+                </div>
+                <button type="button" class="btn btn-primary" id="signupButton">Signup</button>
+            </form>
+        </div>
+        <div id="interviewSection" style="display: none;">
+            <h2>Interview Assistant</h2>
+            <div class="form-group">
+                <label for="jobStream">Select Job Stream</label>
+                <select class="form-control" id="jobStream">
+                    <option value="Python">Python</option>
+                    <option value="Data Scientist">Data Scientist</option>
+                    <option value="Backend Developer">Backend Developer</option>
+                    <!-- Add options for other job streams -->
+                </select>
+            </div>
+            <button class="btn btn-primary" id="startRecording">Start Recording</button>
+            <button class="btn btn-danger" id="stopRecording" style="display: none;">Stop Recording</button>
+            <div id="questionsContainer" style="display: none;">
+                <h2>Interview Questions for <span id="jobTitlePlaceholder"></span></h2>
+                <ul id="questionsList"></ul>
+            </div>
+            <div id="instruction" style="display: none;">Please answer questions one by one, and once you are done, please stop recording.
+            </div>
+
+
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        let recording = false;
+        const signupSection = document.getElementById("signupSection");
+        const interviewSection = document.getElementById("interviewSection");
+        const signupForm = document.getElementById("signupForm");
+        const startRecordingButton = document.getElementById("startRecording");
+        const stopRecordingButton = document.getElementById("stopRecording");
+        const jobStreamDropdown = document.getElementById("jobStream");
+        const questionsContainer = document.getElementById("questionsContainer");
+        const questionsList = document.getElementById("questionsList");
+
+        document.getElementById("signupButton").addEventListener("click", function () {
+            const username = document.getElementById("username").value;
+            const workExperience = document.getElementById("workExperience").value;
+
+            // Perform signup here (e.g., check if fields are not empty and workExperience is a number)
+            if (username !== "" && workExperience !== "" && !isNaN(workExperience)) {
+                signupSection.style.display = "none";
+
+                interviewSection.style.display = "block";
+                console.log(username,workExperience)
+                sendRequest("/record", { action: 'None', username: username });// Send start action
+
+            } else {
+                // Display an error message if signup fails
+                alert("Signup failed. Please check your information.");
+            }
+        });
+
+        startRecordingButton.addEventListener("click", function () {
+            const username = document.getElementById("username").value;
+            const selectedJobStream = jobStreamDropdown.value;
+
+            startRecordingButton.style.display = "none";
+            stopRecordingButton.style.display = "block";
+            recording = true;
+            sendRequest("/record", { action: 'start', username: username });
+            document.getElementById("instruction").style.display = "block";
+            // Call the generateQuestions function when the button is clicked
+            console.log(selectedJobStream)
+            generateQuestions(selectedJobStream);
+            //console.log(generateQuestions)
+        });
+
+        stopRecordingButton.addEventListener("click", function () {
+            document.getElementById("instruction").style.display = "none";
+            startRecordingButton.style.display = "block";
+            stopRecordingButton.style.display = "none";
+            questionsContainer.style.display = "none";
+            recording = false;
+            sendRequest("/record", { action: 'stop' });
+        });
+
+        function generateQuestions(selectedJobStream) {
+        const username = document.getElementById("username").value;
+
+        const jobTitlePlaceholder = document.getElementById("jobTitlePlaceholder");
+        jobTitlePlaceholder.textContent = selectedJobStream;
+
+        // Send an AJAX request to the server to generate questions based on the selected job stream
+        fetch("/generate_questions", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ jobStream: selectedJobStream }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+            if (data.questions) {
+                questionsList.innerHTML = ''; // Clear previous questions
+
+                data.questions.forEach(question => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = question;
+                    questionsList.appendChild(listItem);
+                });
+
+                questionsContainer.style.display = "block"; // Show the questions
+            }
+        })
+        .catch(error => {
+            console.error('Error generating questions:', error);
+        });
+        }
+
+
+        function sendRequest(url, data) {
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            })
+            .then(response => response.json())
+            .then(result => {
+                // Handle the response from the server if needed
+            })
+            .catch(error => {
+                console.error('Error sending the request:', error);
+            });
+        }
+    </script>
+</body>
+</html>

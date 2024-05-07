@@ -1,0 +1,95 @@
+<!-- templates/index.html -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Interview Assistant</h1>
+        <div class="d-flex justify-content-between">
+            <button class="btn btn-primary" id="startRecording">Start Recording</button>
+            <button class="btn btn-danger" id="stopRecording" style="display: none;">Stop Recording</button>
+        </div>
+        <div class="mt-4">
+            <video id="liveVideo" width="640" height="480" autoplay playsinline muted></video>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        let recording = false;
+        let videoStream;
+        let mediaRecorder;
+        let videoChunks = [];
+
+        document.getElementById("startRecording").addEventListener("click", function () {
+            recording = true;
+            document.getElementById("startRecording").style.display = "none";
+            document.getElementById("stopRecording").style.display = "block";
+            startRecording();
+        });
+
+        document.getElementById("stopRecording").addEventListener("click", function () {
+            recording = false;
+            document.getElementById("startRecording").style.display="block";
+            document.getElementById("stopRecording").style.display="none";
+            stopRecording();
+        });
+
+        async function startRecording() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                mediaRecorder = new MediaRecorder(videoStream);
+                mediaRecorder.ondataavailable = function (event) {
+                    if (event.data.size > 0) {
+                        videoChunks.push(event.data);
+                    }
+                };
+                mediaRecorder.onstop = function () {
+                    let videoBlob = new Blob(videoChunks, { type: 'video/webm' });
+                    let videoURL = URL.createObjectURL(videoBlob);
+                    document.getElementById("liveVideo").src = videoURL;
+                    videoChunks = [];
+                    sendRequest("/record", { action: 'stop' });
+                };
+                mediaRecorder.start();
+                sendRequest("/record", { action: 'start' });
+            } catch (error) {
+                console.error("Error accessing camera: ", error);
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+            if (videoStream) {
+                videoStream.getVideoTracks().forEach(track => {
+                    track.stop();
+                });
+                videoStream = null;
+            }
+        }
+
+        function sendRequest(url, data) {
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (response.status === 200) {
+                    console.log(data.action === 'start' ? 'Recording started' : 'Recording stopped');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+
+
